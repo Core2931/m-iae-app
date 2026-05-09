@@ -43,6 +43,13 @@ export interface AppConfig {
   defaultSplit: SplitRatio;
 }
 
+export interface Couple {
+  id: string;
+  inviteCode: string;
+  myName: string;
+  partnerName: string;
+}
+
 export interface StorageAdapter {
   getExpenses(): Promise<Expense[]>;
   addExpense(expense: Expense): Promise<void>;

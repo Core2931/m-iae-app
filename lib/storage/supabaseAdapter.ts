@@ -14,6 +14,7 @@ type ExpenseRow = {
   date: string;
   note: string | null;
   created_at: string;
+  couple_id: string;
 };
 
 function rowToExpense(row: ExpenseRow): Expense {
@@ -30,7 +31,7 @@ function rowToExpense(row: ExpenseRow): Expense {
   };
 }
 
-function expenseToRow(e: Expense): Omit<ExpenseRow, never> {
+function expenseToRow(e: Expense, coupleId: string): Omit<ExpenseRow, never> {
   return {
     id: e.id,
     description: e.description,
@@ -42,30 +43,38 @@ function expenseToRow(e: Expense): Omit<ExpenseRow, never> {
     date: e.date,
     note: e.note ?? null,
     created_at: e.createdAt,
+    couple_id: coupleId,
   };
 }
 
 export class SupabaseAdapter implements StorageAdapter {
+  coupleId: string | null = null;
+
   private get client(): SupabaseClient {
     return getSupabaseClient();
   }
 
   async getExpenses(): Promise<Expense[]> {
+    if (!this.coupleId) return [];
     const { data, error } = await this.client
       .from("expenses")
       .select("*")
+      .eq("couple_id", this.coupleId)
       .order("date", { ascending: false });
     if (error) throw error;
     return (data as ExpenseRow[]).map(rowToExpense);
   }
 
   async addExpense(expense: Expense): Promise<void> {
-    const { error } = await this.client.from("expenses").insert(expenseToRow(expense));
+    if (!this.coupleId) throw new Error("coupleId not set");
+    const { error } = await this.client
+      .from("expenses")
+      .insert(expenseToRow(expense, this.coupleId));
     if (error) throw error;
   }
 
   async updateExpense(id: string, updates: Partial<Expense>): Promise<void> {
-    const row: Partial<ExpenseRow> = {};
+    const row: Partial<Omit<ExpenseRow, "couple_id">> = {};
     if (updates.description !== undefined) row.description = updates.description;
     if (updates.amount !== undefined) row.amount = updates.amount;
     if (updates.category !== undefined) row.category = updates.category;
@@ -87,19 +96,27 @@ export class SupabaseAdapter implements StorageAdapter {
   }
 
   async getConfig(): Promise<AppConfig> {
+    if (!this.coupleId) return DEFAULT_CONFIG;
     const { data, error } = await this.client
-      .from("config")
-      .select("value")
-      .eq("key", "default")
+      .from("couples")
+      .select("my_name, partner_name")
+      .eq("id", this.coupleId)
       .single();
     if (error || !data) return DEFAULT_CONFIG;
-    return data.value as AppConfig;
+    return {
+      myName: data.my_name,
+      partnerName: data.partner_name,
+      currency: "THB",
+      defaultSplit: { me: 50, partner: 50 },
+    };
   }
 
   async saveConfig(config: AppConfig): Promise<void> {
+    if (!this.coupleId) return;
     const { error } = await this.client
-      .from("config")
-      .upsert({ key: "default", value: config });
+      .from("couples")
+      .update({ my_name: config.myName, partner_name: config.partnerName })
+      .eq("id", this.coupleId);
     if (error) throw error;
   }
 }

@@ -3,12 +3,19 @@
 import { create } from "zustand";
 import type { AppConfig, Expense } from "@/types";
 import { storage } from "@/lib/storage";
+import { SupabaseAdapter } from "@/lib/storage/supabaseAdapter";
 import { DEFAULT_CONFIG } from "@/lib/constants";
 
 interface ExpenseStore {
   expenses: Expense[];
   config: AppConfig;
   isLoaded: boolean;
+  coupleId: string | null;
+  inviteCode: string | null;
+  coupleChecked: boolean;
+  setCouple(id: string, inviteCode: string): void;
+  clearCouple(): void;
+  resetStore(): void;
   load(): Promise<void>;
   addExpense(data: Omit<Expense, "id" | "createdAt">): Promise<void>;
   updateExpense(id: string, updates: Partial<Expense>): Promise<void>;
@@ -16,12 +23,33 @@ interface ExpenseStore {
   saveConfig(config: AppConfig): Promise<void>;
 }
 
-export const useExpenseStore = create<ExpenseStore>((set, get) => ({
+const adapter = storage as SupabaseAdapter;
+
+export const useExpenseStore = create<ExpenseStore>((set) => ({
   expenses: [],
   config: DEFAULT_CONFIG,
   isLoaded: false,
+  coupleId: null,
+  inviteCode: null,
+  coupleChecked: false,
+
+  setCouple(id, inviteCode) {
+    adapter.coupleId = id;
+    set({ coupleId: id, inviteCode, coupleChecked: true, isLoaded: false, expenses: [], config: DEFAULT_CONFIG });
+  },
+
+  clearCouple() {
+    adapter.coupleId = null;
+    set({ coupleId: null, inviteCode: null, coupleChecked: true, isLoaded: false, expenses: [], config: DEFAULT_CONFIG });
+  },
+
+  resetStore() {
+    adapter.coupleId = null;
+    set({ coupleId: null, inviteCode: null, coupleChecked: false, isLoaded: false, expenses: [], config: DEFAULT_CONFIG });
+  },
 
   async load() {
+    if (!adapter.coupleId) return;
     const [expenses, config] = await Promise.all([
       storage.getExpenses(),
       storage.getConfig(),
@@ -36,7 +64,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
       createdAt: new Date().toISOString(),
     };
     await storage.addExpense(expense);
-    set((s) => ({ expenses: [...s.expenses, expense] }));
+    set((s) => ({ expenses: [expense, ...s.expenses] }));
   },
 
   async updateExpense(id, updates) {
