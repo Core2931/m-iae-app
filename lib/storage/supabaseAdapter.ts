@@ -1,6 +1,7 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppConfig, Expense, StorageAdapter } from "@/types";
 import { DEFAULT_CONFIG } from "@/lib/constants";
+import { getSupabaseClient } from "@/lib/supabase";
 
 type ExpenseRow = {
   id: string;
@@ -45,15 +46,8 @@ function expenseToRow(e: Expense): Omit<ExpenseRow, never> {
 }
 
 export class SupabaseAdapter implements StorageAdapter {
-  private _client: SupabaseClient | null = null;
-
   private get client(): SupabaseClient {
-    if (!this._client) {
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      this._client = createClient(url, key);
-    }
-    return this._client;
+    return getSupabaseClient();
   }
 
   async getExpenses(): Promise<Expense[]> {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const tabs = [
   { href: "/", label: "หน้าหลัก", icon: "🏠" },
@@ -13,6 +14,7 @@ const tabs = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { signOut } = useAuth();
 
   return (
     <nav className="no-print fixed bottom-0 left-0 right-0 z-50">
@@ -43,6 +45,13 @@ export default function BottomNav() {
               </Link>
             );
           })}
+          <button
+            onClick={signOut}
+            className="flex flex-col items-center gap-0.5 px-4 py-2 rounded-2xl transition-all"
+          >
+            <span className="text-xl">🚪</span>
+            <span className="text-[10px] font-medium text-white/70">ออก</span>
+          </button>
         </div>
       </div>
     </nav>

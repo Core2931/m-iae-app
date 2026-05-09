@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import BottomNav from "@/components/layout/BottomNav";
+import AppShell from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
   title: "M-IAE — Expense Tracker",
@@ -13,10 +13,11 @@ export default function RootLayout({
   return (
     <html lang="th" className="h-full">
       <body className="h-full">
-        <main className="max-w-md mx-auto min-h-svh pb-24 px-4">
-          {children}
-        </main>
-        <BottomNav />
+        <AppShell>
+          <main className="max-w-md mx-auto min-h-svh pb-24 px-4">
+            {children}
+          </main>
+        </AppShell>
       </body>
     </html>
   );
