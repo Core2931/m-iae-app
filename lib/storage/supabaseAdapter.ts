@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AppConfig, Expense, StorageAdapter } from "@/types";
-import { DEFAULT_CONFIG } from "@/lib/constants";
+import type { Expense, ExpenseSplit, GroupMember, StorageAdapter } from "@/types";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type ExpenseRow = {
@@ -8,13 +7,12 @@ type ExpenseRow = {
   description: string;
   amount: number;
   category: string;
-  paid_by: string;
-  split_me: number;
-  split_partner: number;
+  paid_by_user_id: string;
+  splits: { userId: string; amount: number }[];
   date: string;
   note: string | null;
   created_at: string;
-  couple_id: string;
+  group_id: string;
 };
 
 function rowToExpense(row: ExpenseRow): Expense {
@@ -23,66 +21,64 @@ function rowToExpense(row: ExpenseRow): Expense {
     description: row.description,
     amount: Number(row.amount),
     category: row.category as Expense["category"],
-    paidBy: row.paid_by as Expense["paidBy"],
-    splitRatio: { me: row.split_me, partner: row.split_partner },
+    paidByUserId: row.paid_by_user_id,
+    splits: (row.splits ?? []) as ExpenseSplit[],
     date: row.date,
     note: row.note ?? undefined,
     createdAt: row.created_at,
   };
 }
 
-function expenseToRow(e: Expense, coupleId: string): Omit<ExpenseRow, never> {
+function expenseToRow(e: Expense, groupId: string): ExpenseRow {
   return {
     id: e.id,
     description: e.description,
     amount: e.amount,
     category: e.category,
-    paid_by: e.paidBy,
-    split_me: e.splitRatio.me,
-    split_partner: e.splitRatio.partner,
+    paid_by_user_id: e.paidByUserId,
+    splits: e.splits,
     date: e.date,
     note: e.note ?? null,
     created_at: e.createdAt,
-    couple_id: coupleId,
+    group_id: groupId,
   };
 }
 
 export class SupabaseAdapter implements StorageAdapter {
-  coupleId: string | null = null;
+  groupId: string | null = null;
+  currentUserId: string | null = null;
 
   private get client(): SupabaseClient {
     return getSupabaseClient();
   }
 
   async getExpenses(): Promise<Expense[]> {
-    if (!this.coupleId) return [];
+    if (!this.groupId) return [];
     const { data, error } = await this.client
       .from("expenses")
       .select("*")
-      .eq("couple_id", this.coupleId)
+      .eq("group_id", this.groupId)
       .order("date", { ascending: false });
     if (error) throw error;
     return (data as ExpenseRow[]).map(rowToExpense);
   }
 
   async addExpense(expense: Expense): Promise<void> {
-    if (!this.coupleId) throw new Error("coupleId not set");
+    if (!this.groupId) throw new Error("groupId not set");
     const { error } = await this.client
       .from("expenses")
-      .insert(expenseToRow(expense, this.coupleId));
+      .insert(expenseToRow(expense, this.groupId));
     if (error) throw error;
   }
 
   async updateExpense(id: string, updates: Partial<Expense>): Promise<void> {
-    const row: Partial<Omit<ExpenseRow, "couple_id">> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row: Record<string, any> = {};
     if (updates.description !== undefined) row.description = updates.description;
     if (updates.amount !== undefined) row.amount = updates.amount;
     if (updates.category !== undefined) row.category = updates.category;
-    if (updates.paidBy !== undefined) row.paid_by = updates.paidBy;
-    if (updates.splitRatio !== undefined) {
-      row.split_me = updates.splitRatio.me;
-      row.split_partner = updates.splitRatio.partner;
-    }
+    if (updates.paidByUserId !== undefined) row.paid_by_user_id = updates.paidByUserId;
+    if (updates.splits !== undefined) row.splits = updates.splits;
     if (updates.date !== undefined) row.date = updates.date;
     if (updates.note !== undefined) row.note = updates.note ?? null;
 
@@ -95,28 +91,43 @@ export class SupabaseAdapter implements StorageAdapter {
     if (error) throw error;
   }
 
-  async getConfig(): Promise<AppConfig> {
-    if (!this.coupleId) return DEFAULT_CONFIG;
-    const { data, error } = await this.client
-      .from("couples")
-      .select("my_name, partner_name")
-      .eq("id", this.coupleId)
-      .single();
-    if (error || !data) return DEFAULT_CONFIG;
+  async getGroupInfo(): Promise<{ name: string; members: GroupMember[] }> {
+    if (!this.groupId) return { name: "", members: [] };
+    const [groupRes, membersRes] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.client as any).from("groups").select("name").eq("id", this.groupId).single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.client as any)
+        .from("group_members")
+        .select("user_id, display_name")
+        .eq("group_id", this.groupId),
+    ]);
     return {
-      myName: data.my_name,
-      partnerName: data.partner_name,
-      currency: "THB",
-      defaultSplit: { me: 50, partner: 50 },
+      name: groupRes.data?.name ?? "",
+      members: ((membersRes.data ?? []) as { user_id: string; display_name: string }[]).map(
+        (r) => ({ userId: r.user_id, displayName: r.display_name })
+      ),
     };
   }
 
-  async saveConfig(config: AppConfig): Promise<void> {
-    if (!this.coupleId) return;
-    const { error } = await this.client
-      .from("couples")
-      .update({ my_name: config.myName, partner_name: config.partnerName })
-      .eq("id", this.coupleId);
+  async saveGroupName(name: string): Promise<void> {
+    if (!this.groupId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (this.client as any)
+      .from("groups")
+      .update({ name })
+      .eq("id", this.groupId);
+    if (error) throw error;
+  }
+
+  async updateMyDisplayName(name: string): Promise<void> {
+    if (!this.groupId || !this.currentUserId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (this.client as any)
+      .from("group_members")
+      .update({ display_name: name })
+      .eq("group_id", this.groupId)
+      .eq("user_id", this.currentUserId);
     if (error) throw error;
   }
 }

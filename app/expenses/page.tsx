@@ -9,13 +9,13 @@ import type { Category } from "@/types";
 import { cn } from "@/lib/utils";
 
 export default function ExpensesPage() {
-  const { expenses, config, isLoaded } = useExpenses();
+  const { expenses, members, isLoaded } = useExpenses();
   const [filterCategory, setFilterCategory] = useState<Category | "all">("all");
-  const [filterPayer, setFilterPayer] = useState<"all" | "me" | "partner">("all");
+  const [filterPayer, setFilterPayer] = useState<string>("all");
 
   const filtered = expenses.filter((e) => {
     if (filterCategory !== "all" && e.category !== filterCategory) return false;
-    if (filterPayer !== "all" && e.paidBy !== filterPayer) return false;
+    if (filterPayer !== "all" && e.paidByUserId !== filterPayer) return false;
     return true;
   });
 
@@ -23,6 +23,7 @@ export default function ExpensesPage() {
     <div className="flex flex-col gap-4">
       <PageHeader title="รายจ่ายทั้งหมด" />
 
+      {/* Category filter */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {[
           { value: "all", label: "ทั้งหมด" },
@@ -43,17 +44,17 @@ export default function ExpensesPage() {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      {/* Payer filter */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {[
           { value: "all", label: "ทุกคน" },
-          { value: "me", label: `${config.myName}จ่าย` },
-          { value: "partner", label: `${config.partnerName}จ่าย` },
+          ...members.map((m) => ({ value: m.userId, label: `${m.displayName}จ่าย` })),
         ].map(({ value, label }) => (
           <button
             key={value}
-            onClick={() => setFilterPayer(value as "all" | "me" | "partner")}
+            onClick={() => setFilterPayer(value)}
             className={cn(
-              "flex-1 rounded-2xl px-3 py-1.5 text-xs border transition-all",
+              "flex-shrink-0 rounded-2xl px-3 py-1.5 text-xs border transition-all",
               filterPayer === value
                 ? "bg-white/30 border-white/50 text-white font-semibold"
                 : "bg-white/10 border-white/20 text-white/60"
@@ -67,7 +68,7 @@ export default function ExpensesPage() {
       {isLoaded ? (
         <ExpenseList
           expenses={filtered}
-          config={config}
+          members={members}
           emptyMessage="ไม่พบรายจ่ายในตัวกรองนี้"
         />
       ) : (

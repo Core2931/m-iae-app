@@ -1,11 +1,11 @@
-import type { AppConfig, Expense, StorageAdapter } from "@/types";
-import { DEFAULT_CONFIG } from "@/lib/constants";
+import type { Expense, GroupMember, StorageAdapter } from "@/types";
 
 const KEYS = {
   expenses: "miae_expenses",
-  config: "miae_config",
 } as const;
 
+// Stub implementation — not used in production (SupabaseAdapter is active)
+// Kept for local testing fallback only
 export class LocalStorageAdapter implements StorageAdapter {
   async getExpenses(): Promise<Expense[]> {
     if (typeof window === "undefined") return [];
@@ -26,19 +26,14 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async deleteExpense(id: string): Promise<void> {
     const current = await this.getExpenses();
-    localStorage.setItem(
-      KEYS.expenses,
-      JSON.stringify(current.filter((e) => e.id !== id))
-    );
+    localStorage.setItem(KEYS.expenses, JSON.stringify(current.filter((e) => e.id !== id)));
   }
 
-  async getConfig(): Promise<AppConfig> {
-    if (typeof window === "undefined") return DEFAULT_CONFIG;
-    const raw = localStorage.getItem(KEYS.config);
-    return raw ? (JSON.parse(raw) as AppConfig) : DEFAULT_CONFIG;
+  async getGroupInfo(): Promise<{ name: string; members: GroupMember[] }> {
+    return { name: "Local", members: [] };
   }
 
-  async saveConfig(config: AppConfig): Promise<void> {
-    localStorage.setItem(KEYS.config, JSON.stringify(config));
-  }
+  async saveGroupName(_name: string): Promise<void> {}
+
+  async updateMyDisplayName(_name: string): Promise<void> {}
 }

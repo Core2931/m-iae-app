@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { SettlementResult, Expense, AppConfig } from "@/types";
+import type { SettlementResult, Expense, GroupMember } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { CATEGORIES } from "@/lib/constants";
 import Button from "@/components/ui/Button";
@@ -9,45 +9,49 @@ import Button from "@/components/ui/Button";
 interface ExportMenuProps {
   settlement: SettlementResult;
   expenses: Expense[];
-  config: AppConfig;
+  members: GroupMember[];
+  groupName: string;
 }
 
 function buildSummaryText(
   settlement: SettlementResult,
   expenses: Expense[],
-  config: AppConfig
+  members: GroupMember[],
+  groupName: string
 ): string {
-  const { direction, netAmount, totalExpenses } = settlement;
+  const { transactions, totalExpenses } = settlement;
+  const nameMap = new Map(members.map((m) => [m.userId, m.displayName]));
   const sorted = [...expenses].sort((a, b) => b.date.localeCompare(a.date));
 
-  const conclusionLine =
-    direction === "settled"
-      ? "✅ เสมอกัน ไม่มีใครต้องจ่ายคืน"
-      : direction === "me_owes"
-      ? `💸 ${config.myName}ต้องจ่าย ${config.partnerName} ${formatCurrency(netAmount)}`
-      : `💸 ${config.partnerName}ต้องจ่าย ${config.myName} ${formatCurrency(netAmount)}`;
+  const settlementLines =
+    transactions.length === 0
+      ? ["✅ ทุกคนเสมอกัน ไม่มีใครต้องจ่ายคืน"]
+      : transactions.map(
+          (t) => `💸 ${t.fromName} จ่ายให้ ${t.toName} ${formatCurrency(t.amount)}`
+        );
 
   const lines = [
-    `📊 สรุปรายจ่าย M-IAE`,
+    `📊 สรุปรายจ่าย ${groupName}`,
     `────────────────────`,
     ...sorted.map((e) => {
       const cat = CATEGORIES.find((c) => c.value === e.category);
-      const payer = e.paidBy === "me" ? config.myName : config.partnerName;
-      return `${cat?.emoji} ${e.description} ${formatCurrency(e.amount)} (${payer}จ่าย ${e.splitRatio.me}/${e.splitRatio.partner})`;
+      const payer = nameMap.get(e.paidByUserId) ?? "?";
+      return `${cat?.emoji} ${e.description} ${formatCurrency(e.amount)} (${payer}จ่าย) [${formatDate(e.date)}]`;
     }),
     `────────────────────`,
     `รวมทั้งหมด: ${formatCurrency(totalExpenses)}`,
-    conclusionLine,
+    ``,
+    ...settlementLines,
   ];
 
   return lines.join("\n");
 }
 
-export default function ExportMenu({ settlement, expenses, config }: ExportMenuProps) {
+export default function ExportMenu({ settlement, expenses, members, groupName }: ExportMenuProps) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    const text = buildSummaryText(settlement, expenses, config);
+    const text = buildSummaryText(settlement, expenses, members, groupName);
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

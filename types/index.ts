@@ -6,11 +6,20 @@ export type Category =
   | "utilities"
   | "other";
 
-export type Payer = "me" | "partner";
+export interface GroupMember {
+  userId: string;
+  displayName: string;
+}
 
-export interface SplitRatio {
-  me: number;
-  partner: number;
+export interface Group {
+  id: string;
+  name: string;
+  inviteCode: string;
+}
+
+export interface ExpenseSplit {
+  userId: string;
+  amount: number;
 }
 
 export interface Expense {
@@ -18,36 +27,34 @@ export interface Expense {
   description: string;
   amount: number;
   category: Category;
-  paidBy: Payer;
-  splitRatio: SplitRatio;
+  paidByUserId: string;
+  splits: ExpenseSplit[];
   date: string;
   note?: string;
   createdAt: string;
 }
 
+export interface MemberBalance {
+  userId: string;
+  displayName: string;
+  totalPaid: number;
+  totalOwed: number;
+  net: number;
+}
+
+export interface SettlementTransaction {
+  fromUserId: string;
+  fromName: string;
+  toUserId: string;
+  toName: string;
+  amount: number;
+}
+
 export interface SettlementResult {
   totalExpenses: number;
-  meActuallyPaid: number;
-  partnerActuallyPaid: number;
-  meShouldPay: number;
-  partnerShouldPay: number;
-  netAmount: number;
-  direction: "me_owes" | "partner_owes" | "settled";
+  memberBalances: MemberBalance[];
+  transactions: SettlementTransaction[];
   expenseCount: number;
-}
-
-export interface AppConfig {
-  myName: string;
-  partnerName: string;
-  currency: string;
-  defaultSplit: SplitRatio;
-}
-
-export interface Couple {
-  id: string;
-  inviteCode: string;
-  myName: string;
-  partnerName: string;
 }
 
 export interface StorageAdapter {
@@ -55,6 +62,7 @@ export interface StorageAdapter {
   addExpense(expense: Expense): Promise<void>;
   updateExpense(id: string, updates: Partial<Expense>): Promise<void>;
   deleteExpense(id: string): Promise<void>;
-  getConfig(): Promise<AppConfig>;
-  saveConfig(config: AppConfig): Promise<void>;
+  getGroupInfo(): Promise<{ name: string; members: GroupMember[] }>;
+  saveGroupName(name: string): Promise<void>;
+  updateMyDisplayName(name: string): Promise<void>;
 }

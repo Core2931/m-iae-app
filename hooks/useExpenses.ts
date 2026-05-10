@@ -4,12 +4,34 @@ import { useEffect } from "react";
 import { useExpenseStore } from "@/store/expenseStore";
 
 export function useExpenses() {
-  const { expenses, config, isLoaded, load, addExpense, updateExpense, deleteExpense, saveConfig } =
-    useExpenseStore();
+  const {
+    expenses,
+    members,
+    groupName,
+    currentUserId,
+    isLoaded,
+    load,
+    addExpense,
+    updateExpense,
+    deleteExpense,
+    saveGroupName,
+    updateMyDisplayName,
+  } = useExpenseStore();
 
   useEffect(() => {
     if (!isLoaded) load();
   }, [isLoaded, load]);
 
-  return { expenses, config, isLoaded, addExpense, updateExpense, deleteExpense, saveConfig };
+  return {
+    expenses,
+    members,
+    groupName,
+    currentUserId,
+    isLoaded,
+    addExpense,
+    updateExpense,
+    deleteExpense,
+    saveGroupName,
+    updateMyDisplayName,
+  };
 }

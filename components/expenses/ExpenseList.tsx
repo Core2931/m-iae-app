@@ -1,16 +1,16 @@
-import type { Expense, AppConfig } from "@/types";
+import type { Expense, GroupMember } from "@/types";
 import ExpenseItem from "./ExpenseItem";
 
 interface ExpenseListProps {
   expenses: Expense[];
-  config: AppConfig;
+  members: GroupMember[];
   emptyMessage?: string;
   limit?: number;
 }
 
 export default function ExpenseList({
   expenses,
-  config,
+  members,
   emptyMessage = "ยังไม่มีรายจ่าย",
   limit,
 }: ExpenseListProps) {
@@ -26,12 +26,7 @@ export default function ExpenseList({
   return (
     <div className="flex flex-col gap-2">
       {displayed.map((expense) => (
-        <ExpenseItem
-          key={expense.id}
-          expense={expense}
-          myName={config.myName}
-          partnerName={config.partnerName}
-        />
+        <ExpenseItem key={expense.id} expense={expense} members={members} />
       ))}
     </div>
   );

@@ -8,8 +8,8 @@ import BreakdownTable from "@/components/settlement/BreakdownTable";
 import ExportMenu from "@/components/settlement/ExportMenu";
 
 export default function SettlementPage() {
-  const { expenses, config, isLoaded } = useExpenses();
-  const { settlement } = useSettlement();
+  const { expenses, isLoaded } = useExpenses();
+  const { settlement, groupName, members } = useSettlement();
 
   if (!isLoaded) {
     return <p className="text-white/60 text-center pt-20">กำลังโหลด...</p>;
@@ -27,9 +27,9 @@ export default function SettlementPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="สรุปยอด" />
-      <SettlementCard settlement={settlement} config={config} />
-      <BreakdownTable settlement={settlement} config={config} />
-      <ExportMenu settlement={settlement} expenses={expenses} config={config} />
+      <SettlementCard settlement={settlement} groupName={groupName} />
+      <BreakdownTable settlement={settlement} />
+      <ExportMenu settlement={settlement} expenses={expenses} members={members} groupName={groupName} />
     </div>
   );
 }

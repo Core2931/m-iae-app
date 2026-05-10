@@ -5,7 +5,10 @@ import { useExpenseStore } from "@/store/expenseStore";
 import { calculateSettlement } from "@/lib/settlement";
 
 export function useSettlement() {
-  const { expenses, config } = useExpenseStore();
-  const settlement = useMemo(() => calculateSettlement(expenses), [expenses]);
-  return { settlement, config };
+  const { expenses, members, groupName } = useExpenseStore();
+  const settlement = useMemo(
+    () => calculateSettlement(expenses, members),
+    [expenses, members]
+  );
+  return { settlement, groupName, members };
 }
